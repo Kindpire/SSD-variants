@@ -70,6 +70,7 @@ criterion = MultiBoxLoss()
 
 # cuda
 if opt.cuda:
+    model = torch.nn.DataParallel(model, device_ids=[0,1])
     model.cuda()
     criterion.cuda()
     cudnn.benchmark = True
@@ -150,14 +151,14 @@ def train():
             optimizer.step()
 
             if iteration % 10 == 0:
-                summary.add_scalar('loss/loc_loss', loc_loss.data[0], iteration)
-                summary.add_scalar('loss/conf_loss', conf_loss.data[0], iteration)
-                summary.add_scalars('loss/loss', {"loc_loss": loc_loss.data[0],
-                                                  "conf_loss": conf_loss.data[0],
-                                                  "loss": loss.data[0]}, iteration)
-
+                summary.add_scalar('loss/loc_loss', loc_loss.item(), iteration)
+                summary.add_scalar('loss/conf_loss', conf_loss.item(), iteration)
+                summary.add_scalars('loss/loss', {"loc_loss": loc_loss.item(),
+                                                  "conf_loss": conf_loss.item(),
+                                                  "loss": loss.item()}, iteration)
+                print('iter: {}, Loss:{}'.format(iteration, loss.item))
             if iteration % 5000 == 0 and iteration != opt.start_iter:
-                print('Save state, iter: {}, Loss:{}'.format(iteration, loss.data[0]))
+                print('Save state, iter: {}, Loss:{}'.format(iteration, loss.item))
                 if not os.path.isdir('weights'):
                         os.mkdir('weights')
                 torch.save(model.state_dict(), 'weights/{}_0712_{}.pth'.format(cfg.get('name', 'SSD'), iteration))

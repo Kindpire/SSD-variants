@@ -19,10 +19,10 @@ class L2Norm(nn.Module):
     def __init__(self,n_channels, scale=20):
         super(L2Norm,self).__init__()
         self.weight = nn.Parameter(torch.Tensor(n_channels))
-        nn.init.constant(self.weight, scale)
+        nn.init.constant_(self.weight, scale)
 
     def forward(self, x):
-        x /= (x.pow(2).sum(dim=1, keepdim=True).sqrt() + 1e-10)
+        x = x/(x.pow(2).sum(dim=1, keepdim=True).sqrt() + 1e-10)
         out = self.weight.unsqueeze(0).unsqueeze(2).unsqueeze(3).expand_as(x) * x
         return out
 
@@ -72,13 +72,15 @@ class SSD300(nn.Module):
             n = len(ar) + 1
             self.Loc.append(nn.Conv2d(n_channels[i], n * 4, 3, padding=1))
             self.Conf.append(nn.Conv2d(n_channels[i], n * (self.n_classes + 1), 3, padding=1))
-
+        self.relu = nn.ReLU()
     def forward(self, x):
         xs = []
         for name, m in itertools.chain(self.Base._modules.items(), 
                                        self.Extra._modules.items()):
             if isinstance(m, nn.Conv2d):
-                x = F.relu(m(x), inplace=True)
+                #tmpx = m(x)
+                #x = F.relu(tmpx)
+                x = self.relu(m(x))
             else:
                 x = m(x)
 
@@ -88,7 +90,7 @@ class SSD300(nn.Module):
                     xs.append(self.L2Norm[i](x))
                 else:
                     xs.append(x)
-
+        
         return self._prediction(xs)
 
     def _prediction(self, xs):
@@ -98,7 +100,6 @@ class SSD300(nn.Module):
             loc = self.Loc[i](x)
             loc = loc.permute(0, 2, 3, 1).contiguous().view(loc.size(0), -1, 4)
             locs.append(loc)
-
             conf = self.Conf[i](x)
             conf = conf.permute(0, 2, 3, 1).contiguous().view(conf.size(0), -1, self.n_classes + 1)
             confs.append(conf)
